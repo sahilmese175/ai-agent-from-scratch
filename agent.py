@@ -40,7 +40,7 @@ def execute_tool(tool_name, arguments):
 
 
 # -----------------------------------------
-# Send prompt to local Qwen LLM
+# Send prompt to local Qwen
 # -----------------------------------------
 def ask_llm(prompt):
 
@@ -58,15 +58,25 @@ def ask_llm(prompt):
 
 
 # -----------------------------------------
-# Get user input
+# User input
 # -----------------------------------------
 user_input = input("You: ")
 
 
 # -----------------------------------------
-# Get descriptions of available tools
+# Tool descriptions
 # -----------------------------------------
 tool_descriptions = get_tool_descriptions()
+
+
+# -----------------------------------------
+# Short-term memory
+# -----------------------------------------
+history = []
+
+history.append(
+    f"User: {user_input}"
+)
 
 
 # -----------------------------------------
@@ -83,9 +93,7 @@ Your job is to solve the user's request.
 
 You may use one or more tools.
 
-If you need a tool, return ONLY valid JSON.
-
-Use this format:
+If you need a tool, return ONLY valid JSON:
 
 {{
     "tool": "tool_name",
@@ -101,19 +109,20 @@ If you have enough information to answer the user, return ONLY valid JSON:
     "answer": "your final answer"
 }}
 
-User request:
-{user_input}
+Conversation history:
+
+{history}
 """
 
 
 # =========================================
-# REAL AGENT LOOP
+# AGENT LOOP
 # =========================================
 
 while True:
 
     # -------------------------------------
-    # Ask LLM what to do
+    # Ask LLM
     # -------------------------------------
     response = ask_llm(prompt)
 
@@ -122,7 +131,15 @@ while True:
 
 
     # -------------------------------------
-    # Convert JSON text into Python
+    # Save LLM response to memory
+    # -------------------------------------
+    history.append(
+        f"Agent: {response}"
+    )
+
+
+    # -------------------------------------
+    # Convert JSON to Python
     # -------------------------------------
     try:
 
@@ -131,18 +148,17 @@ while True:
     except json.JSONDecodeError:
 
         print("\nInvalid JSON returned by LLM.")
-
         break
 
 
     # -------------------------------------
-    # Get selected tool
+    # Get tool name
     # -------------------------------------
     tool_name = data.get("tool")
 
 
     # -------------------------------------
-    # Agent has finished
+    # Agent finished
     # -------------------------------------
     if tool_name == "none":
 
@@ -158,7 +174,7 @@ while True:
 
 
     # -------------------------------------
-    # Check whether tool exists
+    # Check tool
     # -------------------------------------
     if tool_name not in TOOLS:
 
@@ -168,7 +184,7 @@ while True:
 
 
     # -------------------------------------
-    # Get tool arguments
+    # Get arguments
     # -------------------------------------
     arguments = data.get(
         "arguments",
@@ -177,7 +193,7 @@ while True:
 
 
     # -------------------------------------
-    # Execute selected tool
+    # Execute tool
     # -------------------------------------
     result = execute_tool(
         tool_name,
@@ -190,21 +206,32 @@ while True:
 
 
     # -------------------------------------
-    # Give tool result back to LLM
+    # Save tool result to memory
+    # -------------------------------------
+    history.append(
+        f"Tool {tool_name} result: {result}"
+    )
+
+
+    # -------------------------------------
+    # Create next prompt
     # -------------------------------------
     prompt = f"""
 You are an AI agent.
 
+You have access to these tools:
+
+{tool_descriptions}
+
 Original user request:
+
 {user_input}
 
-You previously used this tool:
-{tool_name}
+Conversation history:
 
-The tool returned this result:
-{result}
+{history}
 
-Now decide what to do next.
+Decide what to do next.
 
 If you need another tool, return ONLY valid JSON:
 

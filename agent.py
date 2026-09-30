@@ -40,6 +40,33 @@ def execute_tool(tool_name, arguments):
 
 
 # -----------------------------------------
+# Parse LLM response
+# -----------------------------------------
+def parse_llm_response(response):
+
+    response = response.strip()
+
+    # Remove ```json
+    if response.startswith("```json"):
+        response = response[7:]
+
+    # Remove ```
+    if response.startswith("```"):
+        response = response[3:]
+
+    if response.endswith("```"):
+        response = response[:-3]
+
+    response = response.strip()
+
+    try:
+        return json.loads(response)
+
+    except json.JSONDecodeError:
+        return None
+
+
+# -----------------------------------------
 # Send prompt to local Qwen
 # -----------------------------------------
 def ask_llm(prompt):
@@ -58,13 +85,13 @@ def ask_llm(prompt):
 
 
 # -----------------------------------------
-# User input
+# Get user input
 # -----------------------------------------
 user_input = input("You: ")
 
 
 # -----------------------------------------
-# Tool descriptions
+# Get tool descriptions
 # -----------------------------------------
 tool_descriptions = get_tool_descriptions()
 
@@ -141,13 +168,13 @@ while True:
     # -------------------------------------
     # Convert JSON to Python
     # -------------------------------------
-    try:
+    data = parse_llm_response(response)
 
-        data = json.loads(response)
-
-    except json.JSONDecodeError:
+    if data is None:
 
         print("\nInvalid JSON returned by LLM.")
+        print("Agent stopped safely.")
+
         break
 
 
@@ -174,7 +201,7 @@ while True:
 
 
     # -------------------------------------
-    # Check tool
+    # Check whether tool exists
     # -------------------------------------
     if tool_name not in TOOLS:
 
@@ -184,7 +211,7 @@ while True:
 
 
     # -------------------------------------
-    # Get arguments
+    # Get tool arguments
     # -------------------------------------
     arguments = data.get(
         "arguments",

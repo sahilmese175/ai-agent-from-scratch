@@ -12,9 +12,10 @@
 
     <title>AI Agent</title>
 
+    <!-- IMPORTANT: FastAPI static path -->
     <link
         rel="stylesheet"
-        href="style.css"
+        href="/static/style.css"
     >
 
 </head>
@@ -39,7 +40,10 @@
 
                 <div>
                     <h2>AI Agent</h2>
-                    <span>Local Intelligence</span>
+
+                    <span>
+                        Local Intelligence
+                    </span>
                 </div>
 
             </div>
@@ -67,7 +71,6 @@
                     id="conversationList"
                     class="conversation-list"
                 >
-
                 </div>
 
             </div>
@@ -81,7 +84,9 @@
 
                     <div>
 
-                        <strong>Agent Online</strong>
+                        <strong>
+                            Agent Online
+                        </strong>
 
                         <small>
                             Qwen 3 • Local
@@ -164,19 +169,27 @@
                     <div class="suggestions">
 
                         <button
-                            onclick="useSuggestion('Calculate 25 multiplied by 16')"
+                            onclick="useSuggestion(
+                                'Calculate 25 multiplied by 16'
+                            )"
                         >
                             🧮 Calculate something
                         </button>
 
+
                         <button
-                            onclick="useSuggestion('What is the weather in Pune?')"
+                            onclick="useSuggestion(
+                                'What is the weather in Pune?'
+                            )"
                         >
                             🌤️ Check weather
                         </button>
 
+
                         <button
-                            onclick="useSuggestion('Remember that my favorite language is C++')"
+                            onclick="useSuggestion(
+                                'Remember that my favorite language is C++'
+                            )"
                         >
                             🧠 Save a memory
                         </button>
@@ -203,6 +216,7 @@
                         onkeydown="handleKey(event)"
                     ></textarea>
 
+
                     <button
                         id="sendButton"
                         onclick="sendMessage()"
@@ -227,7 +241,8 @@
     </div>
 
 
-    <script src="script.js"></script>
+    <!-- IMPORTANT: FastAPI static path -->
+    <script src="/static/script.js"></script>
 
 </body>
 

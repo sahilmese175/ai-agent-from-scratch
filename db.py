@@ -1,4 +1,8 @@
+import os
 import mysql.connector
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 # =========================================
@@ -7,18 +11,16 @@ import mysql.connector
 
 def get_connection():
 
-    connection = mysql.connector.connect(
-        host="localhost",
-        user="agent_user",
-        password="Sahil@1234",
-        database="ai_agent_db"
+    return mysql.connector.connect(
+        host=os.getenv("DB_HOST"),
+        user=os.getenv("DB_USER"),
+        password=os.getenv("DB_PASSWORD"),
+        database=os.getenv("DB_NAME")
     )
-
-    return connection
 
 
 # =========================================
-# Conversation Functions
+# Conversations
 # =========================================
 
 def create_conversation(title):
@@ -26,12 +28,13 @@ def create_conversation(title):
     connection = get_connection()
     cursor = connection.cursor()
 
-    query = """
-    INSERT INTO conversations (title)
-    VALUES (%s)
-    """
-
-    cursor.execute(query, (title,))
+    cursor.execute(
+        """
+        INSERT INTO conversations (title)
+        VALUES (%s)
+        """,
+        (title,)
+    )
 
     connection.commit()
 
@@ -48,14 +51,12 @@ def save_message(conversation_id, role, content):
     connection = get_connection()
     cursor = connection.cursor()
 
-    query = """
-    INSERT INTO messages
-    (conversation_id, role, content)
-    VALUES (%s, %s, %s)
-    """
-
     cursor.execute(
-        query,
+        """
+        INSERT INTO messages
+        (conversation_id, role, content)
+        VALUES (%s, %s, %s)
+        """,
         (conversation_id, role, content)
     )
 
@@ -70,15 +71,13 @@ def get_messages(conversation_id):
     connection = get_connection()
     cursor = connection.cursor()
 
-    query = """
-    SELECT role, content
-    FROM messages
-    WHERE conversation_id = %s
-    ORDER BY id ASC
-    """
-
     cursor.execute(
-        query,
+        """
+        SELECT role, content
+        FROM messages
+        WHERE conversation_id = %s
+        ORDER BY id ASC
+        """,
         (conversation_id,)
     )
 
@@ -91,7 +90,7 @@ def get_messages(conversation_id):
 
 
 # =========================================
-# Long-Term Memory Functions
+# Long-Term Memory
 # =========================================
 
 def save_memory(memory_key, memory_value):
@@ -99,49 +98,38 @@ def save_memory(memory_key, memory_value):
     connection = get_connection()
     cursor = connection.cursor()
 
-    # Check whether this memory already exists
-    check_query = """
-    SELECT id
-    FROM memories
-    WHERE memory_key = %s
-    """
-
     cursor.execute(
-        check_query,
+        """
+        SELECT id
+        FROM memories
+        WHERE memory_key = %s
+        """,
         (memory_key,)
     )
 
-    existing_memory = cursor.fetchone()
+    existing = cursor.fetchone()
 
-
-    if existing_memory:
-
-        # Update existing memory
-        update_query = """
-        UPDATE memories
-        SET memory_value = %s
-        WHERE memory_key = %s
-        """
+    if existing:
 
         cursor.execute(
-            update_query,
+            """
+            UPDATE memories
+            SET memory_value = %s
+            WHERE memory_key = %s
+            """,
             (memory_value, memory_key)
         )
 
     else:
 
-        # Create new memory
-        insert_query = """
-        INSERT INTO memories
-        (memory_key, memory_value)
-        VALUES (%s, %s)
-        """
-
         cursor.execute(
-            insert_query,
+            """
+            INSERT INTO memories
+            (memory_key, memory_value)
+            VALUES (%s, %s)
+            """,
             (memory_key, memory_value)
         )
-
 
     connection.commit()
 
@@ -154,14 +142,12 @@ def get_memory(memory_key):
     connection = get_connection()
     cursor = connection.cursor()
 
-    query = """
-    SELECT memory_value
-    FROM memories
-    WHERE memory_key = %s
-    """
-
     cursor.execute(
-        query,
+        """
+        SELECT memory_value
+        FROM memories
+        WHERE memory_key = %s
+        """,
         (memory_key,)
     )
 
@@ -169,7 +155,6 @@ def get_memory(memory_key):
 
     cursor.close()
     connection.close()
-
 
     if result:
         return result[0]
@@ -182,13 +167,13 @@ def get_all_memories():
     connection = get_connection()
     cursor = connection.cursor()
 
-    query = """
-    SELECT memory_key, memory_value
-    FROM memories
-    ORDER BY id ASC
-    """
-
-    cursor.execute(query)
+    cursor.execute(
+        """
+        SELECT memory_key, memory_value
+        FROM memories
+        ORDER BY id ASC
+        """
+    )
 
     memories = cursor.fetchall()
 

@@ -1,4 +1,6 @@
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 import requests
 import json
@@ -15,11 +17,11 @@ from db import (
 
 
 # =========================================
-# FastAPI APP
+# FASTAPI APP
 # =========================================
 
 app = FastAPI(
-    title="AI Agent API",
+    title="AI Agent",
     description="AI Agent built from scratch",
     version="1.0"
 )
@@ -30,8 +32,28 @@ app = FastAPI(
 # =========================================
 
 class ChatRequest(BaseModel):
+
     conversation_id: int
     message: str
+
+
+# =========================================
+# SERVE FRONTEND
+# =========================================
+
+app.mount(
+    "/static",
+    StaticFiles(directory="frontend"),
+    name="static"
+)
+
+
+@app.get("/")
+def home():
+
+    return FileResponse(
+        "frontend/index.html"
+    )
 
 
 # =========================================
@@ -60,9 +82,12 @@ Arguments: {tool["arguments"]}
 def execute_tool(tool_name, arguments):
 
     if tool_name not in TOOLS:
+
         return "Tool not found"
 
-    return TOOLS[tool_name]["function"](**arguments)
+    return TOOLS[tool_name]["function"](
+        **arguments
+    )
 
 
 # =========================================
@@ -74,18 +99,25 @@ def parse_llm_response(response):
     response = response.strip()
 
     if response.startswith("```json"):
+
         response = response[7:]
 
     if response.startswith("```"):
+
         response = response[3:]
 
     if response.endswith("```"):
+
         response = response[:-3]
 
     try:
-        return json.loads(response.strip())
+
+        return json.loads(
+            response.strip()
+        )
 
     except json.JSONDecodeError:
+
         return None
 
 
@@ -96,27 +128,18 @@ def parse_llm_response(response):
 def ask_llm(prompt):
 
     response = requests.post(
+
         "http://localhost:11434/api/generate",
+
         json={
             "model": "qwen3:4b",
             "prompt": prompt,
             "stream": False
         }
+
     )
 
     return response.json()["response"]
-
-
-# =========================================
-# HOME
-# =========================================
-
-@app.get("/")
-def home():
-
-    return {
-        "message": "AI Agent API is running"
-    }
 
 
 # =========================================
@@ -140,21 +163,30 @@ def create_new_conversation():
 # =========================================
 
 @app.get("/conversations/{conversation_id}")
-def get_conversation(conversation_id: int):
+def get_conversation(
+    conversation_id: int
+):
 
     messages = get_messages(
         conversation_id
     )
 
     return {
-        "conversation_id": conversation_id,
+
+        "conversation_id":
+            conversation_id,
+
         "messages": [
+
             {
                 "role": role,
                 "content": content
             }
+
             for role, content in messages
+
         ]
+
     }
 
 
@@ -168,13 +200,18 @@ def get_memories():
     memories = get_all_memories()
 
     return {
+
         "memories": [
+
             {
                 "key": key,
                 "value": value
             }
+
             for key, value in memories
+
         ]
+
     }
 
 
@@ -185,12 +222,15 @@ def get_memories():
 @app.post("/chat")
 def chat(request: ChatRequest):
 
-    conversation_id = request.conversation_id
+    conversation_id = (
+        request.conversation_id
+    )
+
     user_input = request.message
 
 
     # -------------------------------------
-    # Load conversation history
+    # Load conversation
     # -------------------------------------
 
     previous_messages = get_messages(
@@ -215,13 +255,18 @@ def chat(request: ChatRequest):
     if memories:
 
         memory_text = "\n".join(
+
             f"- {key}: {value}"
+
             for key, value in memories
+
         )
 
     else:
 
-        memory_text = "No long-term memories."
+        memory_text = (
+            "No long-term memories."
+        )
 
 
     # -------------------------------------
@@ -262,7 +307,7 @@ User request:
 
 {user_input}
 
-Return ONLY valid JSON.
+Only return valid JSON.
 
 If a tool is required:
 
@@ -280,8 +325,8 @@ If you can answer:
     "memory": null
 }}
 
-If the user provides an important permanent
-personal fact, you may save it:
+If the user gives an important permanent
+personal fact, save it:
 
 {{
     "tool": "none",
@@ -294,9 +339,9 @@ personal fact, you may save it:
 """
 
 
-    # -------------------------------------
-    # Agent loop
-    # -------------------------------------
+    # =====================================
+    # AGENT LOOP
+    # =====================================
 
     while True:
 
@@ -306,10 +351,12 @@ personal fact, you may save it:
             response
         )
 
+
         if data is None:
 
             return {
-                "error": "Invalid response from LLM"
+                "error":
+                    "Invalid response from LLM"
             }
 
 
@@ -317,7 +364,9 @@ personal fact, you may save it:
         # Save memory
         # ---------------------------------
 
-        memory = data.get("memory")
+        memory = data.get(
+            "memory"
+        )
 
         if isinstance(memory, dict):
 
@@ -350,8 +399,13 @@ personal fact, you may save it:
             )
 
             return {
-                "conversation_id": conversation_id,
-                "answer": answer
+
+                "conversation_id":
+                    conversation_id,
+
+                "answer":
+                    answer
+
             }
 
 
@@ -379,18 +433,26 @@ personal fact, you may save it:
         # ---------------------------------
 
         save_message(
+
             conversation_id,
+
             "tool",
+
             f"{tool_name}: {result}"
+
         )
 
+
         history.append(
-            f"Tool {tool_name} result: {result}"
+
+            f"Tool {tool_name} result: "
+            f"{result}"
+
         )
 
 
         # ---------------------------------
-        # Continue agent
+        # Next prompt
         # ---------------------------------
 
         prompt = f"""
@@ -420,7 +482,7 @@ Decide what to do next.
 
 Return ONLY valid JSON.
 
-If another tool is needed:
+If another tool is required:
 
 {{
     "tool": "tool_name",

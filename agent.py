@@ -2,12 +2,19 @@ import requests
 import json
 
 from tool_registry import TOOLS
-from db import save_message, get_messages
+
+from db import (
+    create_conversation,
+    save_message,
+    get_messages,
+    get_all_memories,
+    save_memory
+)
 
 
-# -----------------------------------------
-# Get descriptions of all available tools
-# -----------------------------------------
+# =========================================
+# TOOL DESCRIPTIONS
+# =========================================
 
 def get_tool_descriptions():
 
@@ -24,9 +31,9 @@ Arguments: {tool["arguments"]}
     return descriptions
 
 
-# -----------------------------------------
-# Execute a tool
-# -----------------------------------------
+# =========================================
+# EXECUTE TOOL
+# =========================================
 
 def execute_tool(tool_name, arguments):
 
@@ -35,26 +42,20 @@ def execute_tool(tool_name, arguments):
 
     tool = TOOLS[tool_name]
 
-    function = tool["function"]
-
-    result = function(**arguments)
-
-    return result
+    return tool["function"](**arguments)
 
 
-# -----------------------------------------
-# Parse LLM response
-# -----------------------------------------
+# =========================================
+# PARSE LLM RESPONSE
+# =========================================
 
 def parse_llm_response(response):
 
     response = response.strip()
 
-    # Remove ```json
     if response.startswith("```json"):
         response = response[7:]
 
-    # Remove ```
     if response.startswith("```"):
         response = response[3:]
 
@@ -70,9 +71,9 @@ def parse_llm_response(response):
         return None
 
 
-# -----------------------------------------
-# Send prompt to local Qwen
-# -----------------------------------------
+# =========================================
+# ASK QWEN
+# =========================================
 
 def ask_llm(prompt):
 
@@ -84,34 +85,92 @@ def ask_llm(prompt):
         "stream": False
     }
 
-    response = requests.post(url, json=data)
+    response = requests.post(
+        url,
+        json=data
+    )
 
     return response.json()["response"]
 
 
-# -----------------------------------------
-# Get user input
-# -----------------------------------------
+# =========================================
+# LOAD LONG-TERM MEMORY
+# =========================================
+
+def load_memories():
+
+    memories = get_all_memories()
+
+    if not memories:
+        return "No long-term memories stored."
+
+    memory_text = ""
+
+    for key, value in memories:
+
+        memory_text += (
+            f"- {key}: {value}\n"
+        )
+
+    return memory_text
+
+
+# =========================================
+# USER INPUT
+# =========================================
 
 user_input = input("You: ")
 
 
-# -----------------------------------------
-# Get tool descriptions
-# -----------------------------------------
+# =========================================
+# TOOL DESCRIPTIONS
+# =========================================
 
 tool_descriptions = get_tool_descriptions()
 
 
-# -----------------------------------------
-# Persistent memory
-# -----------------------------------------
+# =========================================
+# CONVERSATION MANAGEMENT
+# =========================================
+
+conversation_input = input(
+    "\nEnter conversation ID "
+    "(press Enter for new conversation): "
+)
+
+
+if conversation_input.strip() == "":
+
+    conversation_id = create_conversation(
+        "AI Agent Conversation"
+    )
+
+    print(
+        f"\nCreated new conversation: "
+        f"{conversation_id}"
+    )
+
+else:
+
+    conversation_id = int(
+        conversation_input
+    )
+
+    print(
+        f"\nContinuing conversation: "
+        f"{conversation_id}"
+    )
+
+
+# =========================================
+# LOAD CONVERSATION HISTORY
+# =========================================
 
 history = []
 
-# Get previous messages from MySQL
-
-previous_messages = get_messages()
+previous_messages = get_messages(
+    conversation_id
+)
 
 for role, content in previous_messages:
 
@@ -120,18 +179,31 @@ for role, content in previous_messages:
     )
 
 
-# Save current user message to MySQL
+# =========================================
+# LOAD LONG-TERM MEMORY
+# =========================================
 
-save_message("user", user_input)
+memory_text = load_memories()
+
+
+# =========================================
+# SAVE USER MESSAGE
+# =========================================
+
+save_message(
+    conversation_id,
+    "user",
+    user_input
+)
 
 history.append(
     f"user: {user_input}"
 )
 
 
-# -----------------------------------------
-# Initial prompt
-# -----------------------------------------
+# =========================================
+# INITIAL PROMPT
+# =========================================
 
 prompt = f"""
 You are an AI agent.
@@ -140,9 +212,33 @@ You have access to these tools:
 
 {tool_descriptions}
 
-Your job is to solve the user's request.
+You also have long-term memory.
 
-You may use one or more tools.
+Current long-term memory:
+
+{memory_text}
+
+Important memory rule:
+
+Only create a memory when the user gives a useful,
+stable personal fact, preference, identity detail,
+or important information that should be remembered
+across future conversations.
+
+Do NOT create memories for ordinary questions,
+temporary requests, calculations, or tool results.
+
+If you decide something should be remembered,
+include:
+
+"memory": {{
+    "key": "short_key",
+    "value": "information to remember"
+}}
+
+Otherwise use:
+
+"memory": null
 
 If you need a tool, return ONLY valid JSON:
 
@@ -150,19 +246,25 @@ If you need a tool, return ONLY valid JSON:
     "tool": "tool_name",
     "arguments": {{
         "argument_name": "value"
-    }}
+    }},
+    "memory": null
 }}
 
-If you have enough information to answer the user, return ONLY valid JSON:
+If you have enough information to answer:
 
 {{
     "tool": "none",
-    "answer": "your final answer"
+    "answer": "your final answer",
+    "memory": null
 }}
 
 Conversation history:
 
 {history}
+
+User request:
+
+{user_input}
 """
 
 
@@ -173,7 +275,7 @@ Conversation history:
 while True:
 
     # -------------------------------------
-    # Ask LLM
+    # Ask Qwen
     # -------------------------------------
 
     response = ask_llm(prompt)
@@ -183,7 +285,52 @@ while True:
 
 
     # -------------------------------------
-    # Save LLM response to memory
+    # Parse response
+    # -------------------------------------
+
+    data = parse_llm_response(
+        response
+    )
+
+    if data is None:
+
+        print(
+            "\nInvalid JSON returned by LLM."
+        )
+
+        print(
+            "Agent stopped safely."
+        )
+
+        break
+
+
+    # -------------------------------------
+    # Save memory if provided
+    # -------------------------------------
+
+    memory = data.get("memory")
+
+    if isinstance(memory, dict):
+
+        memory_key = memory.get("key")
+        memory_value = memory.get("value")
+
+        if memory_key and memory_value:
+
+            save_memory(
+                memory_key,
+                memory_value
+            )
+
+            print(
+                f"\nMemory saved: "
+                f"{memory_key} = {memory_value}"
+            )
+
+
+    # -------------------------------------
+    # Add agent response to history
     # -------------------------------------
 
     history.append(
@@ -192,29 +339,17 @@ while True:
 
 
     # -------------------------------------
-    # Convert JSON to Python
+    # Get tool
     # -------------------------------------
 
-    data = parse_llm_response(response)
-
-    if data is None:
-
-        print("\nInvalid JSON returned by LLM.")
-        print("Agent stopped safely.")
-
-        break
+    tool_name = data.get(
+        "tool"
+    )
 
 
-    # -------------------------------------
-    # Get tool name
-    # -------------------------------------
-
-    tool_name = data.get("tool")
-
-
-    # -------------------------------------
-    # Agent finished
-    # -------------------------------------
+    # =====================================
+    # FINAL ANSWER
+    # =====================================
 
     if tool_name == "none":
 
@@ -226,8 +361,8 @@ while True:
         print("\nFinal answer:")
         print(final_answer)
 
-        # Save final answer to MySQL
         save_message(
+            conversation_id,
             "assistant",
             final_answer
         )
@@ -235,20 +370,23 @@ while True:
         break
 
 
-    # -------------------------------------
-    # Check whether tool exists
-    # -------------------------------------
+    # =====================================
+    # CHECK TOOL
+    # =====================================
 
     if tool_name not in TOOLS:
 
-        print("\nUnknown tool:", tool_name)
+        print(
+            "\nUnknown tool:",
+            tool_name
+        )
 
         break
 
 
-    # -------------------------------------
-    # Get tool arguments
-    # -------------------------------------
+    # =====================================
+    # TOOL ARGUMENTS
+    # =====================================
 
     arguments = data.get(
         "arguments",
@@ -256,47 +394,55 @@ while True:
     )
 
 
-    # -------------------------------------
-    # Execute tool
-    # -------------------------------------
+    # =====================================
+    # EXECUTE TOOL
+    # =====================================
 
     result = execute_tool(
         tool_name,
         arguments
     )
 
-
     print("\nTool result:")
     print(result)
 
 
-    # -------------------------------------
-    # Save tool result to memory
-    # -------------------------------------
+    # =====================================
+    # SAVE TOOL RESULT
+    # =====================================
 
     history.append(
         f"Tool {tool_name} result: {result}"
     )
 
-
-    # Save tool result to MySQL
-
     save_message(
+        conversation_id,
         "tool",
         f"{tool_name}: {result}"
     )
 
 
-    # -------------------------------------
-    # Create next prompt
-    # -------------------------------------
+    # =====================================
+    # REFRESH MEMORY
+    # =====================================
+
+    memory_text = load_memories()
+
+
+    # =====================================
+    # NEXT PROMPT
+    # =====================================
 
     prompt = f"""
 You are an AI agent.
 
-You have access to these tools:
+Available tools:
 
 {tool_descriptions}
+
+Long-term memory:
+
+{memory_text}
 
 Original user request:
 
@@ -314,13 +460,15 @@ If you need another tool, return ONLY valid JSON:
     "tool": "tool_name",
     "arguments": {{
         "argument_name": "value"
-    }}
+    }},
+    "memory": null
 }}
 
-If you have enough information to answer the user, return ONLY valid JSON:
+If you have enough information:
 
 {{
     "tool": "none",
-    "answer": "your final answer"
+    "answer": "your final answer",
+    "memory": null
 }}
 """

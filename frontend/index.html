@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>AI Agent</title>
+
+    <link
+        rel="stylesheet"
+        href="style.css"
+    >
+
+</head>
+
+
+<body>
+
+    <div class="app">
+
+
+        <!-- ================================= -->
+        <!-- SIDEBAR -->
+        <!-- ================================= -->
+
+        <aside class="sidebar">
+
+            <div class="brand">
+
+                <div class="brand-icon">
+                    🤖
+                </div>
+
+                <div>
+                    <h2>AI Agent</h2>
+                    <span>Local Intelligence</span>
+                </div>
+
+            </div>
+
+
+            <button
+                class="new-chat"
+                onclick="newChat()"
+            >
+
+                <span>＋</span>
+
+                New Chat
+
+            </button>
+
+
+            <div class="sidebar-section">
+
+                <p class="section-title">
+                    CONVERSATIONS
+                </p>
+
+                <div
+                    id="conversationList"
+                    class="conversation-list"
+                >
+
+                </div>
+
+            </div>
+
+
+            <div class="sidebar-bottom">
+
+                <div class="status">
+
+                    <span class="status-dot"></span>
+
+                    <div>
+
+                        <strong>Agent Online</strong>
+
+                        <small>
+                            Qwen 3 • Local
+                        </small>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </aside>
+
+
+        <!-- ================================= -->
+        <!-- MAIN CHAT -->
+        <!-- ================================= -->
+
+        <main class="chat-area">
+
+
+            <!-- HEADER -->
+
+            <header class="chat-header">
+
+                <div>
+
+                    <h1>
+                        AI Assistant
+                    </h1>
+
+                    <p>
+                        Your personal local AI agent
+                    </p>
+
+                </div>
+
+
+                <div class="header-badges">
+
+                    <span class="badge">
+                        🧠 Memory
+                    </span>
+
+                    <span class="badge">
+                        🔧 Tools
+                    </span>
+
+                </div>
+
+            </header>
+
+
+            <!-- ================================= -->
+            <!-- MESSAGES -->
+            <!-- ================================= -->
+
+            <section
+                id="messages"
+                class="messages"
+            >
+
+                <div class="welcome">
+
+                    <div class="welcome-icon">
+                        ✨
+                    </div>
+
+                    <h2>
+                        How can I help you?
+                    </h2>
+
+                    <p>
+                        Ask me anything. I can use tools,
+                        remember important information,
+                        and solve multi-step tasks.
+                    </p>
+
+
+                    <div class="suggestions">
+
+                        <button
+                            onclick="useSuggestion('Calculate 25 multiplied by 16')"
+                        >
+                            🧮 Calculate something
+                        </button>
+
+                        <button
+                            onclick="useSuggestion('What is the weather in Pune?')"
+                        >
+                            🌤️ Check weather
+                        </button>
+
+                        <button
+                            onclick="useSuggestion('Remember that my favorite language is C++')"
+                        >
+                            🧠 Save a memory
+                        </button>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- ================================= -->
+            <!-- INPUT -->
+            <!-- ================================= -->
+
+            <div class="input-area">
+
+                <div class="input-box">
+
+                    <textarea
+                        id="messageInput"
+                        placeholder="Ask your AI agent..."
+                        rows="1"
+                        onkeydown="handleKey(event)"
+                    ></textarea>
+
+                    <button
+                        id="sendButton"
+                        onclick="sendMessage()"
+                    >
+                        ➤
+                    </button>
+
+                </div>
+
+
+                <p class="input-hint">
+
+                    AI Agent • Local Qwen • MySQL Memory
+
+                </p>
+
+            </div>
+
+
+        </main>
+
+    </div>
+
+
+    <script src="script.js"></script>
+
+</body>
+
+</html>

@@ -2,11 +2,13 @@ import requests
 import json
 
 from tool_registry import TOOLS
+from db import save_message, get_messages
 
 
 # -----------------------------------------
 # Get descriptions of all available tools
 # -----------------------------------------
+
 def get_tool_descriptions():
 
     descriptions = ""
@@ -25,6 +27,7 @@ Arguments: {tool["arguments"]}
 # -----------------------------------------
 # Execute a tool
 # -----------------------------------------
+
 def execute_tool(tool_name, arguments):
 
     if tool_name not in TOOLS:
@@ -42,6 +45,7 @@ def execute_tool(tool_name, arguments):
 # -----------------------------------------
 # Parse LLM response
 # -----------------------------------------
+
 def parse_llm_response(response):
 
     response = response.strip()
@@ -69,6 +73,7 @@ def parse_llm_response(response):
 # -----------------------------------------
 # Send prompt to local Qwen
 # -----------------------------------------
+
 def ask_llm(prompt):
 
     url = "http://localhost:11434/api/generate"
@@ -87,28 +92,47 @@ def ask_llm(prompt):
 # -----------------------------------------
 # Get user input
 # -----------------------------------------
+
 user_input = input("You: ")
 
 
 # -----------------------------------------
 # Get tool descriptions
 # -----------------------------------------
+
 tool_descriptions = get_tool_descriptions()
 
 
 # -----------------------------------------
-# Short-term memory
+# Persistent memory
 # -----------------------------------------
+
 history = []
 
+# Get previous messages from MySQL
+
+previous_messages = get_messages()
+
+for role, content in previous_messages:
+
+    history.append(
+        f"{role}: {content}"
+    )
+
+
+# Save current user message to MySQL
+
+save_message("user", user_input)
+
 history.append(
-    f"User: {user_input}"
+    f"user: {user_input}"
 )
 
 
 # -----------------------------------------
 # Initial prompt
 # -----------------------------------------
+
 prompt = f"""
 You are an AI agent.
 
@@ -151,6 +175,7 @@ while True:
     # -------------------------------------
     # Ask LLM
     # -------------------------------------
+
     response = ask_llm(prompt)
 
     print("\nLLM response:")
@@ -160,6 +185,7 @@ while True:
     # -------------------------------------
     # Save LLM response to memory
     # -------------------------------------
+
     history.append(
         f"Agent: {response}"
     )
@@ -168,6 +194,7 @@ while True:
     # -------------------------------------
     # Convert JSON to Python
     # -------------------------------------
+
     data = parse_llm_response(response)
 
     if data is None:
@@ -181,12 +208,14 @@ while True:
     # -------------------------------------
     # Get tool name
     # -------------------------------------
+
     tool_name = data.get("tool")
 
 
     # -------------------------------------
     # Agent finished
     # -------------------------------------
+
     if tool_name == "none":
 
         final_answer = data.get(
@@ -197,12 +226,19 @@ while True:
         print("\nFinal answer:")
         print(final_answer)
 
+        # Save final answer to MySQL
+        save_message(
+            "assistant",
+            final_answer
+        )
+
         break
 
 
     # -------------------------------------
     # Check whether tool exists
     # -------------------------------------
+
     if tool_name not in TOOLS:
 
         print("\nUnknown tool:", tool_name)
@@ -213,6 +249,7 @@ while True:
     # -------------------------------------
     # Get tool arguments
     # -------------------------------------
+
     arguments = data.get(
         "arguments",
         {}
@@ -222,6 +259,7 @@ while True:
     # -------------------------------------
     # Execute tool
     # -------------------------------------
+
     result = execute_tool(
         tool_name,
         arguments
@@ -235,14 +273,24 @@ while True:
     # -------------------------------------
     # Save tool result to memory
     # -------------------------------------
+
     history.append(
         f"Tool {tool_name} result: {result}"
+    )
+
+
+    # Save tool result to MySQL
+
+    save_message(
+        "tool",
+        f"{tool_name}: {result}"
     )
 
 
     # -------------------------------------
     # Create next prompt
     # -------------------------------------
+
     prompt = f"""
 You are an AI agent.
 
